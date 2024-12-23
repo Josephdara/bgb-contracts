@@ -20,8 +20,7 @@ contract FCP is ERC721, ReentrancyGuard, Ownable {
     struct Pack {
         address sender;
         address receiverAddress;
-        uint256 USDCAmount;
-        uint256 tokenId;
+        uint96 USDCAmount;
     }
 
     IERC20 public USDC;
@@ -64,14 +63,15 @@ contract FCP is ERC721, ReentrancyGuard, Ownable {
     function buyPack(
         uint256 assetAmount
     ) external nonReentrant returns (uint256 packId) {
+        require(assetAmount < type(uint96).max);
         packId = _nextPackId++;
         Pack storage newPack = packs[packId];
         uint fees = 1e6; // 1 USDC
         uint total = assetAmount + fees;
         USDC.safeTransferFrom(msg.sender, address(this), total);
         newPack.sender = msg.sender;
-        newPack.USDCAmount = assetAmount;
-        newPack.tokenId = packId;
+        newPack.USDCAmount = uint96(assetAmount);
+
         return packId;
     }
 
@@ -85,7 +85,7 @@ contract FCP is ERC721, ReentrancyGuard, Ownable {
         pack.receiverAddress = recipient;
 
         USDC.safeTransfer(recipient, pack.USDCAmount);
-        _safeMint(recipient, pack.tokenId);
+        _safeMint(recipient, packId);
 
         emit PackOpened(packId, recipient);
     }
@@ -101,5 +101,8 @@ contract FCP is ERC721, ReentrancyGuard, Ownable {
         uint256 tokenId
     ) public override {
         revert();
+    }
+    function withdrawTokens(uint256 amount) external onlyOwner{
+        USDC.safeTransfer( msg.sender, amount);
     }
 }
